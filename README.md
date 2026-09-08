@@ -2,6 +2,7 @@
 
 A framework-free portfolio built with semantic HTML, CSS, and vanilla JavaScript. It is designed for direct deployment to GitHub Pages.
 
+<!--
 ## Update points
 
 - Public contact details: `js/main.js`
@@ -148,3 +149,4 @@ index.html is the GitHub Pages entry point and opens the existing Main.html port
 - The local 4K source is excluded from the public repository; load failures use the static poster instead.
 
 The optimized 1080p and 720p files are present and are the only video assets prepared for publication.
+-->
