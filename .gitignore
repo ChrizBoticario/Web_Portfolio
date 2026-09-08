@@ -1,0 +1,30 @@
+# Local agent/editor settings and machine-specific files
+.claude/
+.vscode/
+.idea/
+
+# Secrets and environment files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+
+# Logs, temporary files, and backups
+*.log
+*.tmp
+*.bak
+*~
+
+# Dependency and build artifacts
+node_modules/
+dist/
+build/
+
+# Local source and internal working notes
+assets/videos/background/web_bg_4k.mp4
+AGENTS.md
+CHANGES_SUMMARY.md
+VALIDATION_REPORT.md
