@@ -96,6 +96,8 @@
 
   projects.forEach((project, index) => {
     const article = createElement("article", "project reveal");
+    article.tabIndex = 0;
+    article.setAttribute("aria-label", `${project.title}. Select to center this project.`);
     article.style.setProperty("--reveal-delay", `${Math.min(index % 3, 2) * 90}ms`);
     const header = createElement("div", "project-header");
     header.append(createElement("h3", "", project.title));
@@ -109,21 +111,42 @@
     projectList.append(article);
   });
 
-  if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches && "IntersectionObserver" in window) {
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add("is-visible");
-        } else {
-          entry.target.classList.remove("is-visible");
-        }
-      });
-    }, {
-      rootMargin: "0px 0px -12% 0px",
-      threshold: 0.14
+  // Reveal animation is handled globally by main.js observer on .reveal elements.
+
+  const centerProject = (project) => {
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const rect = project.getBoundingClientRect();
+    const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    const headerHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--header-height")) || 0;
+    const viewportCenter = headerHeight + (window.innerHeight - headerHeight) / 2;
+    const destination = Math.min(
+      maxScroll,
+      Math.max(0, window.scrollY + rect.top + (rect.height / 2) - viewportCenter)
+    );
+
+    window.scrollTo({
+      top: destination,
+      left: 0,
+      behavior: reducedMotion ? "auto" : "smooth"
     });
-    projectList.querySelectorAll(".reveal").forEach((item) => observer.observe(item));
-  } else {
-    projectList.querySelectorAll(".reveal").forEach((item) => item.classList.add("is-visible"));
-  }
+  };
+
+  const shouldIgnoreProjectActivation = (target) => (
+    target instanceof Element && Boolean(target.closest("a[href], button, input, select, textarea, video[controls]"))
+  );
+
+  projectList.addEventListener("click", (event) => {
+    const project = event.target instanceof Element ? event.target.closest(".project") : null;
+    if (!project || shouldIgnoreProjectActivation(event.target)) return;
+    centerProject(project);
+  });
+
+  projectList.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const project = event.target instanceof Element ? event.target.closest(".project") : null;
+    if (!project || event.target !== project) return;
+    event.preventDefault();
+    centerProject(project);
+  });
+
 })();

@@ -71,6 +71,23 @@ window.PORTFOLIO_CONFIG = Object.freeze({
     if (config[key]) element.textContent = config[key].display;
   });
 
+  let toastTimer;
+  const showToast = (message) => {
+    let toast = document.querySelector("[data-toast]");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.className = "site-toast";
+      toast.dataset.toast = "";
+      toast.setAttribute("role", "status");
+      toast.setAttribute("aria-live", "polite");
+      document.body.append(toast);
+    }
+
+    window.clearTimeout(toastTimer);
+    toast.textContent = message;
+    toast.classList.add("is-visible");
+    toastTimer = window.setTimeout(() => toast.classList.remove("is-visible"), 2600);
+  };
   const fallbackCopy = (value) => {
     const field = document.createElement("textarea");
     field.value = value;
@@ -86,21 +103,33 @@ window.PORTFOLIO_CONFIG = Object.freeze({
 
   const copyValue = async (key) => {
     const item = config[key];
-    if (!item?.value) return;
+    if (!item?.value) return false;
 
     try {
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(item.value);
-      } else {
-        fallbackCopy(item.value);
+        return true;
       }
+      return fallbackCopy(item.value);
     } catch {
-      fallbackCopy(item.value);
+      return fallbackCopy(item.value);
     }
   };
 
-  document.querySelectorAll("[data-copy]").forEach((button) => {
-    button.addEventListener("click", () => copyValue(button.dataset.copy));
+  let isProcessingCopy = false;
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-copy]");
+    if (!button || isProcessingCopy) return;
+
+    isProcessingCopy = true;
+    const key = button.dataset.copy;
+    const copied = await copyValue(key);
+    if (key === "email") {
+      showToast(copied ? "Email copied!" : "Email copy failed");
+    } else {
+      showToast(copied ? "GitHub URL copied" : "GitHub copy failed");
+    }
+    setTimeout(() => { isProcessingCopy = false; }, 300);
   });
 
   if (backgroundVideo) {
@@ -228,21 +257,24 @@ window.PORTFOLIO_CONFIG = Object.freeze({
     headerGithub.removeAttribute("aria-disabled");
   }
 
-  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const revealItems = document.querySelectorAll(".reveal");
-  if (reducedMotion || !("IntersectionObserver" in window)) {
-    revealItems.forEach((item) => item.classList.add("is-visible"));
-  } else {
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        entry.target.classList.toggle("is-visible", entry.isIntersecting);
+  // Wait until after defer scripts run (projects.js creates .reveal elements)
+  document.addEventListener("DOMContentLoaded", () => {
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const revealItems = document.querySelectorAll(".reveal");
+    if (reducedMotion || !("IntersectionObserver" in window)) {
+      revealItems.forEach((item) => item.classList.add("is-visible"));
+    } else {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          entry.target.classList.toggle("is-visible", entry.isIntersecting);
+        });
+      }, {
+        rootMargin: "-8% 0px -8% 0px",
+        threshold: 0.12
       });
-    }, {
-      rootMargin: "-8% 0px -8% 0px",
-      threshold: 0.12
-    });
-    revealItems.forEach((item) => observer.observe(item));
-  }
+      revealItems.forEach((item) => observer.observe(item));
+    }
+  });
 
 
   const parseBlogDate = (value) => {
@@ -378,146 +410,5 @@ window.PORTFOLIO_CONFIG = Object.freeze({
 
   initHomeBlogPreview();
   initBlogScrollCenter();
-  // Project Expand/Collapse Behavior
-  const overlay = document.createElement("div");
-  overlay.className = "project-overlay";
-  overlay.setAttribute("aria-hidden", "true");
-  // Keep the dimming layer in the same stacking context as the expanded card.
-  (document.querySelector("main") || document.body).appendChild(overlay);
 
-  let expandedProject = null;
-  let projectPlaceholder = null;
-  let projectTransitionTimer = null;
-
-  const getExpandedProjectCenter = () => {
-    const headerHeight = document.querySelector(".site-header")?.offsetHeight || 72;
-    return {
-      x: window.innerWidth / 2,
-      y: (window.innerHeight / 2) + (headerHeight / 2)
-    };
-  };
-
-  const getProjectLane = (project) => {
-    const projects = [...document.querySelectorAll(".project")];
-    return projects.indexOf(project) % 3;
-  };
-
-  const getExpandedProjectScale = (project) => (
-    getProjectLane(project) === 1 ? 1.06 : 1.08
-  );
-
-  const lockProjectAtRect = (project, rect) => {
-    project.style.width = `${rect.width}px`;
-    project.style.top = `${rect.top + rect.height / 2}px`;
-    project.style.left = `${rect.left + rect.width / 2}px`;
-    project.style.transform = "translate(-50%, -50%)";
-  };
-
-  const createProjectPlaceholder = (project, rect) => {
-    const placeholder = document.createElement("article");
-    placeholder.className = "project project-placeholder";
-    placeholder.setAttribute("aria-hidden", "true");
-    placeholder.style.minHeight = `${rect.height}px`;
-    project.after(placeholder);
-    return placeholder;
-  };
-
-  const clearProjectTransitionTimer = () => {
-    window.clearTimeout(projectTransitionTimer);
-    projectTransitionTimer = null;
-  };
-
-  const finishProjectCollapse = (project) => {
-    clearProjectTransitionTimer();
-    project.classList.add("is-restoring");
-    project.classList.remove("is-expanded", "is-collapsing");
-    project.style.top = "";
-    project.style.left = "";
-    project.style.width = "";
-    project.style.transform = "";
-    projectPlaceholder?.remove();
-    projectPlaceholder = null;
-    expandedProject = null;
-    overlay.classList.remove("is-active");
-    document.body.style.overflow = "";
-    project.getBoundingClientRect();
-    requestAnimationFrame(() => {
-      project.classList.remove("is-restoring");
-    });
-  };
-
-  const closeExpandedProject = () => {
-    if (!expandedProject) return;
-
-    const project = expandedProject;
-    const targetRect = projectPlaceholder?.getBoundingClientRect();
-
-    project.classList.add("is-collapsing");
-    overlay.classList.remove("is-active");
-
-    if (!targetRect) {
-      finishProjectCollapse(project);
-      return;
-    }
-
-    project.style.width = `${targetRect.width}px`;
-    project.style.top = `${targetRect.top + targetRect.height / 2}px`;
-    project.style.left = `${targetRect.left + targetRect.width / 2}px`;
-    project.style.transform = "translate(-50%, -50%)";
-
-    const finishOnTransitionEnd = (event) => {
-      if (event.target !== project || !["top", "left", "transform", "width"].includes(event.propertyName)) return;
-      project.removeEventListener("transitionend", finishOnTransitionEnd);
-      finishProjectCollapse(project);
-    };
-
-    project.addEventListener("transitionend", finishOnTransitionEnd);
-    projectTransitionTimer = window.setTimeout(() => finishProjectCollapse(project), 760);
-  };
-
-  const openProject = (project) => {
-    if (expandedProject && expandedProject !== project) {
-      finishProjectCollapse(expandedProject);
-    }
-
-    clearProjectTransitionTimer();
-
-    const rect = project.getBoundingClientRect();
-    projectPlaceholder = createProjectPlaceholder(project, rect);
-    lockProjectAtRect(project, rect);
-
-    project.classList.add("is-expanded");
-    overlay.classList.add("is-active");
-    document.body.style.overflow = "hidden";
-    expandedProject = project;
-
-    requestAnimationFrame(() => {
-      const center = getExpandedProjectCenter();
-      project.style.top = `${center.y}px`;
-      project.style.left = `${center.x}px`;
-      project.style.width = "";
-      project.style.transform = `translate(-50%, -50%) scale(${getExpandedProjectScale(project)})`;
-    });
-  };
-
-  document.addEventListener("click", (event) => {
-    const project = event.target.closest(".project");
-    const isLink = event.target.closest("a, button");
-
-    if (project && !isLink) {
-      if (!project.classList.contains("is-expanded")) {
-        openProject(project);
-      } else {
-        closeExpandedProject();
-      }
-    } else if (!project || isLink) {
-      closeExpandedProject();
-    }
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      closeExpandedProject();
-    }
-  });
 })();

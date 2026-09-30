@@ -243,6 +243,31 @@ main {
   transition: color var(--hover-duration) var(--hover-ease), transform var(--hover-duration) var(--hover-ease), text-decoration-color var(--hover-duration) var(--hover-ease);
 }
 
+.site-toast {
+  position: fixed;
+  top: max(calc(var(--header-height) + 12px), env(safe-area-inset-top));
+  left: 50%;
+  z-index: 200;
+  max-width: calc(100vw - 40px);
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(13, 20, 23, 0.94);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.32), 0 0 24px rgba(47, 211, 189, 0.12);
+  backdrop-filter: blur(12px);
+  color: var(--text);
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate(-50%, -20px);
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 250ms var(--hover-ease), transform 250ms var(--hover-ease), visibility 250ms var(--hover-ease);
+}
+.site-toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  visibility: visible;
+}
 @media (max-width: 700px) {
   :root { --header-height: 62px; }
   body { font-size: 15px; }
