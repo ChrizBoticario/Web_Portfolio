@@ -7,13 +7,20 @@
   <meta name="theme-color" content="#080d0f">
   <title>Chriz Web Portfolio</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23080d0f'/%3E%3Cpath d='M9 7H5v18h4M23 7h4v18h-4' fill='none' stroke='%232fd3bd' stroke-width='2'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="css/style.css?v=20260825-1542">
-  <link rel="stylesheet" href="css/home.css?v=20260928-project-interactions">
+  <link rel="stylesheet" href="css/style.css?v=20261025-brand-hover">
+  <link rel="stylesheet" href="css/home.css?v=20261025-neon-navy-hover">
+  <link rel="stylesheet" href="css/intro.css?v=20261020">
+  <script src="js/intro.js?v=20261025-entry-aware"></script>
 </head>
 <body id="top">
+  <div class="intro-stage" aria-hidden="true">
+    <div class="intro-sphere"></div>
+    <div class="intro-wave"></div>
+  </div>
+  <div class="intro-page" data-intro-page>
   <a class="skip-link" href="#main-content">Skip to content</a>
-  <div class="video-background" aria-hidden="true">
-    <video class="video-background-media" muted loop playsinline preload="none" poster="assets/images/background/web_bg_poster.png" data-background-video data-video-desktop="assets/videos/background/web_bg_1080p.mp4" data-video-mobile="assets/videos/background/web_bg_720p.mp4"></video>
+  <div class="marble-background" aria-hidden="true">
+    <canvas class="marble-background-media" data-marble-background></canvas>
   </div>
 
   <header class="site-header" data-header>
@@ -87,7 +94,9 @@
     <a class="back-to-top" href="#top">Back to top</a>
   </footer>
 
-  <script src="js/main.js?v=20260825-1532" defer></script>
+  </div>
+  <script src="js/main.js?v=20261025-current-interactions" defer></script>
+  <script src="js/background-webgl.js?v=20261020-marble-webgl" defer></script>
   <script src="js/projects.js?v=20260928-project-interactions" defer></script>
 </body>
 </html>

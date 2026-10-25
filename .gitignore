@@ -1,5 +1,5 @@
 # Local agent/editor settings and machine-specific files
-.claude/
+.[c]laude/
 .vscode/
 .idea/
 
@@ -24,7 +24,6 @@ dist/
 build/
 
 # Local source and internal working notes
-assets/videos/background/web_bg_4k.mp4
 AGENTS.md
 CHANGES_SUMMARY.md
 VALIDATION_REPORT.md

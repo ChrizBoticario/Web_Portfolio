@@ -16,7 +16,6 @@ window.PORTFOLIO_CONFIG = Object.freeze({
   const config = window.PORTFOLIO_CONFIG;
   const menuToggle = document.querySelector("[data-menu-toggle]");
   const navigation = document.querySelector("[data-navigation]");
-  const backgroundVideo = document.querySelector("[data-background-video]");
   let scrollAnimationFrame;
 
   const initFooter = () => {
@@ -131,73 +130,6 @@ window.PORTFOLIO_CONFIG = Object.freeze({
     }
     setTimeout(() => { isProcessingCopy = false; }, 300);
   });
-
-  if (backgroundVideo) {
-    const videoSources = {
-      desktop: backgroundVideo.dataset.videoDesktop,
-      mobile: backgroundVideo.dataset.videoMobile,
-    };
-    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-    let selectedSource = "";
-    let resizeTimer;
-
-    const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const prefersLowerQuality = () => {
-      const slowTypes = ["slow-2g", "2g"];
-      return Boolean(connection?.saveData || slowTypes.includes(connection?.effectiveType));
-    };
-    const shouldUseStaticFallback = () => prefersReducedMotion();
-    const chooseVideoSource = () => {
-      if (shouldUseStaticFallback()) return "";
-      if (prefersLowerQuality() || window.innerWidth < 1024) return videoSources.mobile;
-      return videoSources.desktop;
-    };
-
-    const videoPlaybackRate = 0.7;
-    backgroundVideo.addEventListener("loadedmetadata", () => {
-      backgroundVideo.playbackRate = videoPlaybackRate;
-    });
-
-    const useStaticFallback = () => {
-      selectedSource = "";
-      backgroundVideo.classList.add("is-static-fallback");
-      backgroundVideo.removeAttribute("src");
-      backgroundVideo.load();
-    };
-
-    const loadVideoSource = (source) => {
-      if (!source) {
-        useStaticFallback();
-        return;
-      }
-      if (selectedSource === source) return;
-      selectedSource = source;
-      backgroundVideo.classList.remove("is-static-fallback", "is-unavailable");
-      backgroundVideo.src = source;
-      backgroundVideo.playbackRate = videoPlaybackRate;
-      backgroundVideo.load();
-      backgroundVideo.play().catch(() => {
-        backgroundVideo.controls = false;
-      });
-    };
-
-    backgroundVideo.addEventListener("error", () => {
-      backgroundVideo.classList.add("is-unavailable");
-      useStaticFallback();
-    });
-
-    const selectVideoForViewport = () => {
-      const nextSource = chooseVideoSource();
-      if (nextSource) loadVideoSource(nextSource);
-      else useStaticFallback();
-    };
-
-    selectVideoForViewport();
-    window.addEventListener("resize", () => {
-      window.clearTimeout(resizeTimer);
-      resizeTimer = window.setTimeout(selectVideoForViewport, 180);
-    }, { passive: true });
-  }
 
   const scrollToTarget = (target) => {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -364,6 +296,7 @@ window.PORTFOLIO_CONFIG = Object.freeze({
   const initBlogScrollCenter = () => {
     const list = document.querySelector(".blog-list");
     if (!list) return;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const posts = sortBlogPostsNewestFirst(document);
     posts.forEach((post, index) => {
@@ -408,6 +341,117 @@ window.PORTFOLIO_CONFIG = Object.freeze({
     }
   };
 
+  const initPageScrollbar = () => {
+    const track = document.createElement("div");
+    const thumb = document.createElement("div");
+    track.className = "page-scrollbar";
+    thumb.className = "page-scrollbar-thumb";
+    track.setAttribute("role", "scrollbar");
+    track.setAttribute("aria-label", "Page scroll");
+    track.setAttribute("aria-controls", "main-content");
+    track.setAttribute("aria-orientation", "vertical");
+    track.setAttribute("aria-valuemin", "0");
+    track.tabIndex = 0;
+    track.append(thumb);
+    document.body.append(track);
+
+    let frame = 0;
+    let dragOffset = null;
+    let maxScroll = 0;
+    let travel = 0;
+    let idleTimer;
+
+    const hideAfterIdle = () => {
+      window.clearTimeout(idleTimer);
+      idleTimer = window.setTimeout(() => track.classList.add("is-hidden"), 1000);
+    };
+    const revealForActivity = () => {
+      track.classList.remove("is-hidden");
+      hideAfterIdle();
+    };
+
+    const render = () => {
+      frame = 0;
+      const scrollHeight = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+      maxScroll = Math.max(0, scrollHeight - window.innerHeight);
+      track.hidden = maxScroll <= 1;
+      if (track.hidden) return;
+
+      const height = Math.min(192, track.clientHeight);
+      travel = track.clientHeight - height;
+      thumb.style.height = `${height}px`;
+      thumb.style.transform = `translateY(${travel * window.scrollY / maxScroll}px)`;
+      track.setAttribute("aria-valuemax", String(Math.round(maxScroll)));
+      track.setAttribute("aria-valuenow", String(Math.round(window.scrollY)));
+    };
+
+    const scheduleRender = () => {
+      if (!frame) frame = window.requestAnimationFrame(render);
+    };
+
+    const scrollFromPointer = (clientY) => {
+      const top = track.getBoundingClientRect().top;
+      const position = Math.max(0, Math.min(travel, clientY - top - dragOffset));
+      window.scrollTo({ top: travel ? position / travel * maxScroll : 0, behavior: "instant" });
+    };
+
+    track.addEventListener("pointerdown", (event) => {
+      if (track.hidden || event.button !== 0) return;
+      revealForActivity();
+      window.cancelAnimationFrame(scrollAnimationFrame);
+      dragOffset = event.target === thumb
+        ? event.clientY - thumb.getBoundingClientRect().top
+        : thumb.offsetHeight / 2;
+      track.classList.add("is-dragging");
+      track.setPointerCapture(event.pointerId);
+      if (event.target !== thumb) scrollFromPointer(event.clientY);
+      event.preventDefault();
+    });
+    track.addEventListener("pointermove", (event) => {
+      if (dragOffset !== null) {
+        revealForActivity();
+        scrollFromPointer(event.clientY);
+      }
+    });
+    const stopDrag = () => {
+      dragOffset = null;
+      track.classList.remove("is-dragging");
+      revealForActivity();
+    };
+    track.addEventListener("pointerup", stopDrag);
+    track.addEventListener("pointercancel", stopDrag);
+    track.addEventListener("keydown", (event) => {
+      const step = Math.max(40, window.innerHeight * 0.1);
+      const destinations = {
+        ArrowUp: window.scrollY - step,
+        ArrowDown: window.scrollY + step,
+        PageUp: window.scrollY - window.innerHeight,
+        PageDown: window.scrollY + window.innerHeight,
+        Home: 0,
+        End: maxScroll
+      };
+      if (!(event.key in destinations)) return;
+      event.preventDefault();
+      revealForActivity();
+      window.scrollTo({ top: destinations[event.key], behavior: "instant" });
+    });
+
+    window.addEventListener("scroll", () => {
+      scheduleRender();
+      revealForActivity();
+    }, { passive: true });
+    window.addEventListener("resize", scheduleRender, { passive: true });
+    if ("ResizeObserver" in window) new ResizeObserver(scheduleRender).observe(document.body);
+    scheduleRender();
+
+    if (document.documentElement.classList.contains("intro-active")) {
+      window.addEventListener("portfolio:intro-finished", revealForActivity, { once: true });
+    } else {
+      revealForActivity();
+    }
+  };
+
+  initPageScrollbar();
   initHomeBlogPreview();
   initBlogScrollCenter();
 
